@@ -1,0 +1,20 @@
+{
+  "schema": "linux-toolchain-sdk-spec",
+  "format": 1,
+  "name": "linux-toolchain-x86_64-glibc-2.19",
+  "target": {
+    "arch": "x86_64",
+    "vendor": "portable",
+    "libc": "glibc",
+    "libc_version": "2.19",
+    "linux_headers": "6.12.41",
+    "minimum_kernel": "3.2.0",
+    "cpu": "x86-64"
+  },
+  "builder": {
+    "backend": "crosstool-ng",
+    "version": "1.28.0",
+    "gcc": "9.5.0",
+    "binutils": "2.45"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema": "linux-toolchain-sdk-spec",
+  "format": 1,
+  "name": "linux-toolchain-aarch64-glibc-2.36",
+  "target": {
+    "arch": "aarch64",
+    "vendor": "portable",
+    "libc": "glibc",
+    "libc_version": "2.36",
+    "linux_headers": "6.12.41",
+    "minimum_kernel": "3.10.0",
+    "cpu": "armv8-a"
+  },
+  "builder": {
+    "backend": "crosstool-ng",
+    "version": "1.28.0",
+    "gcc": "9.5.0",
+    "binutils": "2.45"
+  }
+}

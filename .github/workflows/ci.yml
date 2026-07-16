@@ -1,0 +1,113 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Prepare development environment
+        run: make bootstrap
+      - name: Run lint
+        run: make lint
+      - name: Check pull request whitespace
+        if: github.event_name == 'pull_request'
+        run: git diff --check "origin/${{ github.base_ref }}...HEAD"
+      - name: Check pushed commit whitespace
+        if: github.event_name == 'push'
+        run: git show --check --format= HEAD
+      - name: Build distributions
+        run: make python-dist
+      - name: Check distribution boundaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          dist = Path("dist")
+          wheel = next(dist.glob("*.whl"))
+          source = next(dist.glob("*.tar.gz"))
+          with zipfile.ZipFile(wheel) as archive:
+              wheel_names = archive.namelist()
+              entry_points_name = next(
+                  name for name in wheel_names if name.endswith(".dist-info/entry_points.txt")
+              )
+              entry_points = archive.read(entry_points_name).decode()
+          with tarfile.open(source) as archive:
+              source_names = archive.getnames()
+
+          forbidden = (
+              "tests/consumers/",
+          )
+          leaked = sorted(
+              name
+              for name in (*wheel_names, *source_names)
+              if any(fragment in name for fragment in forbidden)
+          )
+          assert not leaked, leaked
+          assert entry_points.strip() == (
+              "[console_scripts]\n"
+              "linux-toolchain = linux_toolchain.cli:main"
+          )
+          PY
+      - name: Rebuild wheel from source distribution
+        run: |
+          mkdir -p dist/from-sdist
+          .venv/bin/python -m pip wheel --no-deps --no-build-isolation \
+            --wheel-dir dist/from-sdist dist/*.tar.gz
+      - name: Test installed command
+        run: |
+          python -m venv /tmp/linux-toolchain-installed
+          /tmp/linux-toolchain-installed/bin/python -m pip install \
+            --no-deps --force-reinstall dist/from-sdist/*.whl
+          /tmp/linux-toolchain-installed/bin/linux-toolchain --version
+          /tmp/linux-toolchain-installed/bin/linux-toolchain doctor --workflow consumer
+          /tmp/linux-toolchain-installed/bin/linux-toolchain bundle --help
+          /tmp/linux-toolchain-installed/bin/linux-toolchain managed assemble --help
+          /tmp/linux-toolchain-installed/bin/linux-toolchain smoke --help
+          /tmp/linux-toolchain-installed/bin/python - <<'PY'
+          from importlib.resources import files
+
+          resources = files("linux_toolchain.resources")
+          required = (
+              "crosstool-ng.Dockerfile",
+              "managed.Dockerfile",
+              "smoke-project/CMakeLists.txt",
+              "smoke-project/Makefile",
+              "smoke-project/conanfile.py",
+              "smoke-project/src/smoke_asm.S",
+              "smoke-project/src/smoke_library.cpp",
+              "smoke-project/src/smoke_library.h",
+              "smoke-project/src/smoke_main.cpp",
+          )
+          for relative in required:
+              assert resources.joinpath(*relative.split("/")).is_file(), relative
+          PY
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: make check

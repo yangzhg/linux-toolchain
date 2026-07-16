@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=65", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linux-toolchain"
+dynamic = ["version"]
+description = "Generate auditable glibc-floor SDKs, compilers, runtimes, and bindings"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Yang Zhengguo", email = "yangzhgg@gmail.com"}]
+keywords = ["abi", "compiler", "cross-compilation", "glibc", "sysroot", "toolchain"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff==0.14.11", "setuptools>=65", "wheel==0.45.1"]
+
+[project.scripts]
+linux-toolchain = "linux_toolchain.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"linux_toolchain.resources" = [
+  "*.Dockerfile",
+  "smoke-project/CMakeLists.txt",
+  "smoke-project/Makefile",
+  "smoke-project/conanfile.py",
+  "smoke-project/src/*.S",
+  "smoke-project/src/*.cpp",
+  "smoke-project/src/*.h",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "linux_toolchain.__version__"}
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

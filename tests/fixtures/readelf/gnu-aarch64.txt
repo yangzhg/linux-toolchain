@@ -1,0 +1,21 @@
+ELF Header:
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           AArch64
+
+Program Headers:
+      [Requesting program interpreter: /lib/ld-linux-aarch64.so.1]
+
+Dynamic section at offset 0x2dc0 contains 2 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
+
+Version definition section '.gnu.version_d' contains 1 entry:
+  0x001c: Rev: 1  Flags: none  Index: 2  Cnt: 1  Name: GLIBC_99.0
+
+Version needs section '.gnu.version_r' contains 1 entry:
+ Addr: 0x0000000000000670  Offset: 0x000670  Link: 6 (.dynstr)
+  000000: Version: 1  File: libc.so.6  Cnt: 1
+  0x0010:   Name: GLIBC_2.18  Flags: none  Version: 2

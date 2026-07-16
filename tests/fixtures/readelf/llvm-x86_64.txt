@@ -1,0 +1,27 @@
+ELF Header {
+  Class: ELF64
+  DataEncoding: LittleEndian
+  Type: SharedObject (Shared object file)
+  Machine: Advanced Micro Devices X86-64
+}
+VersionRequirements [
+  Dependency {
+    Version: 1
+    FileName: libc.so.6
+    Auxiliary {
+      Name: GLIBC_2.17
+    }
+  }
+  Dependency {
+    Version: 1
+    FileName: libgcc_s.so.1
+    Auxiliary {
+      Name: GCC_3.0
+    }
+  }
+]
+VersionDefinitions [
+  Definition {
+    Name: GLIBC_99.0
+  }
+]

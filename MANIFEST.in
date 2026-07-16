@@ -1,0 +1,11 @@
+include CHANGELOG.md CHANGELOG.zh-CN.md
+include CONTRIBUTING.md CONTRIBUTING.zh-CN.md
+include SECURITY.md SECURITY.zh-CN.md
+include LICENSE Makefile
+include README.md README.zh-CN.md
+include src/linux_toolchain/resources/builder.Dockerfile
+recursive-include docs *.md
+recursive-include examples *.json *.md
+recursive-include src/linux_toolchain/resources/smoke-project CMakeLists.txt Makefile *.S *.cpp *.h *.py
+recursive-include tests *.json *.py *.txt
+prune tests/consumers
