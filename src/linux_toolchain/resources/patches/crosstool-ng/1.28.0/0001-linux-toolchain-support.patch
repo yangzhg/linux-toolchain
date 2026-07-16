@@ -1,0 +1,284 @@
+From: linux-toolchain maintainers
+Subject: [PATCH] support portable linkers and backport glibc BZ #16381
+
+Teach the pinned crosstool-NG backend about the exact Mold release selected by
+linux-toolchain.  The source archive remains downloaded and verified by the
+producer before the network-disabled build starts.  Link the Mold executable
+fully statically so it does not retain the builder's glibc as a runtime
+dependency.
+
+The static-binutils path builds Gold directly after configure-host.  Build the
+two generated prerequisites that a direct Gold build cannot make through its
+own subdirectory Makefile.
+
+Backport upstream glibc commit 798212a01311491d5e14fcda687460b75f8ca286
+(BZ #16381) to the 2.17 and 2.19 package series. Explicit ld.so execution then
+loads a PIE main program as an executable and runs its constructors exactly
+once.
+
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -1575 +1575,2 @@ verbatim_data = \
+-	packages/glibc/2.17/0070-x86_64-Correct-THREAD_SETMEM-THREAD_SETMEM_NC-for.patch \
++	packages/glibc/2.17/0070-x86_64-Correct-THREAD_SETMEM-THREAD_SETMEM_NC-for.patch \
++	packages/glibc/2.17/0071-BZ-16381-load-PIE-as-executable.patch \
+@@ -1596 +1597,2 @@ verbatim_data = \
+-	packages/glibc/2.19/0018-fix-GCC-10-detection.patch \
++	packages/glibc/2.19/0018-fix-GCC-10-detection.patch \
++	packages/glibc/2.19/0019-BZ-16381-load-PIE-as-executable.patch \
+diff --git a/config/versions/mold.in b/config/versions/mold.in
+--- a/config/versions/mold.in
++++ b/config/versions/mold.in
+@@ -174 +174,4 @@ config MOLD_VERY_NEW
+-    depends on MOLD_SRC_DEVEL || MOLD_SRC_CUSTOM
++    depends on MOLD_SRC_DEVEL || MOLD_SRC_CUSTOM
++
++config MOLD_V_2_41_0
++    bool "2.41.0"
+@@ -216 +219,2 @@ config MOLD_NO_VERSIONS
+-    default n if MOLD_VERY_NEW
++    default n if MOLD_VERY_NEW
++    default n if MOLD_V_2_41_0
+@@ -237 +241,2 @@ config MOLD_VERSION
+-    string
++    string
++    default "2.41.0" if MOLD_V_2_41_0
+diff --git a/packages/glibc/2.17/0071-BZ-16381-load-PIE-as-executable.patch b/packages/glibc/2.17/0071-BZ-16381-load-PIE-as-executable.patch
+new file mode 100644
+index 0000000..c25fd6d
+--- /dev/null
++++ b/packages/glibc/2.17/0071-BZ-16381-load-PIE-as-executable.patch
+@@ -0,0 +1,95 @@
++From 332fe25c19aceda4a2d400f249fcf8ac345344af Mon Sep 17 00:00:00 2001
++From: Paul Pluzhnikov <ppluzhnikov@google.com>
++Date: Wed, 12 Mar 2014 15:58:39 -0700
++Subject: [PATCH] elf: load PIE main programs as executables [BZ #16381]
++
++Backport of upstream commit 798212a01311491d5e14fcda687460b75f8ca286 to glibc 2.17.
++
++Source: https://sourceware.org/pipermail/glibc-cvs/2014q1/056118.html
++
++The functional change is unchanged; Makefile context and the constructor-once regression test are adapted to the 2.17 test framework.
++---
++ elf/Makefile   |  5 +++--
++ elf/dl-load.c  |  4 ++--
++ elf/rtld.c     |  5 +++--
++ elf/tst-pie2.c | 38 ++++++++++++++++++++++++++++++++++++++
++ 4 files changed, 46 insertions(+), 6 deletions(-)
++ create mode 100644 elf/tst-pie2.c
++
++diff --git a/elf/Makefile b/elf/Makefile
++index 6c7bc97..e80648a 100644
++--- a/elf/Makefile
+++++ b/elf/Makefile
++@@ -220,2 +220,2 @@ modules-names += tst-piemod1
++-tests += tst-pie1
++-tests-pie += tst-pie1
+++tests += tst-pie1 tst-pie2
+++tests-pie += tst-pie1 tst-pie2
++@@ -887 +887,2 @@ CFLAGS-tst-pie1.c += $(pie-ccflag)
++-CFLAGS-tst-pie1.c += $(pie-ccflag)
+++CFLAGS-tst-pie1.c += $(pie-ccflag)
+++CFLAGS-tst-pie2.c += $(pie-ccflag)
++diff --git a/elf/dl-load.c b/elf/dl-load.c
++index 70fe78f..41f478f 100644
++--- a/elf/dl-load.c
+++++ b/elf/dl-load.c
++@@ -1527,2 +1527,2 @@ cannot enable executable stack as shared object requires");
++-  if (l->l_type == lt_library && type == ET_EXEC)
++-    l->l_type = lt_executable;
+++  /* If this is ET_EXEC, we should have loaded it as lt_executable.  */
+++  assert (type != ET_EXEC || l->l_type == lt_executable);
++diff --git a/elf/rtld.c b/elf/rtld.c
++index b0126e5..b755fa0 100644
++--- a/elf/rtld.c
+++++ b/elf/rtld.c
++@@ -626 +626,2 @@ map_doit (void *a)
++-  args->map = _dl_map_object (args->loader, args->str, lt_library, 0,
+++  int type = (args->mode == __RTLD_OPENEXEC) ? lt_executable : lt_library;
+++  args->map = _dl_map_object (args->loader, args->str, type, 0,
++@@ -1078 +1079 @@ of this helper program; chances are you did not intend to run this program.\n\
++-	  _dl_map_object (NULL, rtld_progname, lt_library, 0,
+++	  _dl_map_object (NULL, rtld_progname, lt_executable, 0,
++diff --git a/elf/tst-pie2.c b/elf/tst-pie2.c
++new file mode 100644
++index 0000000..5f715e5
++--- /dev/null
+++++ b/elf/tst-pie2.c
++@@ -0,0 +1,38 @@
+++/* Test case for BZ #16381
+++
+++   Copyright (C) 2014 Free Software Foundation, Inc.
+++   This file is part of the GNU C Library.
+++
+++   The GNU C Library is free software; you can redistribute it and/or
+++   modify it under the terms of the GNU Lesser General Public
+++   License as published by the Free Software Foundation; either
+++   version 2.1 of the License, or (at your option) any later version.
+++
+++   The GNU C Library is distributed in the hope that it will be useful,
+++   but WITHOUT ANY WARRANTY; without even the implied warranty of
+++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+++   Lesser General Public License for more details.
+++
+++   You should have received a copy of the GNU Lesser General Public
+++   License along with the GNU C Library; if not, see
+++   <http://www.gnu.org/licenses/>.  */
+++
+++
+++#include <assert.h>
+++
+++static int g;
+++
+++void init_g (void) __attribute__((constructor));
+++
+++void
+++init_g (void)
+++{
+++  assert (g == 0);
+++  g += 1;
+++}
+++
+++int
+++main (int argc, char *argv[])
+++{
+++  return 0;
+++}
+diff --git a/packages/glibc/2.19/0019-BZ-16381-load-PIE-as-executable.patch b/packages/glibc/2.19/0019-BZ-16381-load-PIE-as-executable.patch
+new file mode 100644
+index 0000000..19509e2
+--- /dev/null
++++ b/packages/glibc/2.19/0019-BZ-16381-load-PIE-as-executable.patch
+@@ -0,0 +1,95 @@
++From 4b98b904cafe3307a744adcdf8446f3a8b8562c5 Mon Sep 17 00:00:00 2001
++From: Paul Pluzhnikov <ppluzhnikov@google.com>
++Date: Wed, 12 Mar 2014 15:58:39 -0700
++Subject: [PATCH] elf: load PIE main programs as executables [BZ #16381]
++
++Backport of upstream commit 798212a01311491d5e14fcda687460b75f8ca286 to glibc 2.19.
++
++Source: https://sourceware.org/pipermail/glibc-cvs/2014q1/056118.html
++
++The functional change is unchanged; the constructor-once regression test is included explicitly because the archived upstream commit diff omitted the new file payload.
++---
++ elf/Makefile   |  5 +++--
++ elf/dl-load.c  |  4 ++--
++ elf/rtld.c     |  5 +++--
++ elf/tst-pie2.c | 38 ++++++++++++++++++++++++++++++++++++++
++ 4 files changed, 46 insertions(+), 6 deletions(-)
++ create mode 100644 elf/tst-pie2.c
++
++diff --git a/elf/Makefile b/elf/Makefile
++index 4c58fc9..055ea38 100644
++--- a/elf/Makefile
+++++ b/elf/Makefile
++@@ -217,2 +217,2 @@ modules-names += tst-piemod1
++-tests += tst-pie1
++-tests-pie += tst-pie1
+++tests += tst-pie1 tst-pie2
+++tests-pie += tst-pie1 tst-pie2
++@@ -884 +884,2 @@ CFLAGS-tst-pie1.c += $(pie-ccflag)
++-CFLAGS-tst-pie1.c += $(pie-ccflag)
+++CFLAGS-tst-pie1.c += $(pie-ccflag)
+++CFLAGS-tst-pie2.c += $(pie-ccflag)
++diff --git a/elf/dl-load.c b/elf/dl-load.c
++index 1be7a3c..a57e960 100644
++--- a/elf/dl-load.c
+++++ b/elf/dl-load.c
++@@ -1537,2 +1537,2 @@ cannot enable executable stack as shared object requires");
++-  if (l->l_type == lt_library && type == ET_EXEC)
++-    l->l_type = lt_executable;
+++  /* If this is ET_EXEC, we should have loaded it as lt_executable.  */
+++  assert (type != ET_EXEC || l->l_type == lt_executable);
++diff --git a/elf/rtld.c b/elf/rtld.c
++index 6dcbabc..021b72e 100644
++--- a/elf/rtld.c
+++++ b/elf/rtld.c
++@@ -626 +626,2 @@ map_doit (void *a)
++-  args->map = _dl_map_object (args->loader, args->str, lt_library, 0,
+++  int type = (args->mode == __RTLD_OPENEXEC) ? lt_executable : lt_library;
+++  args->map = _dl_map_object (args->loader, args->str, type, 0,
++@@ -1078 +1079 @@ of this helper program; chances are you did not intend to run this program.\n\
++-	  _dl_map_object (NULL, rtld_progname, lt_library, 0,
+++	  _dl_map_object (NULL, rtld_progname, lt_executable, 0,
++diff --git a/elf/tst-pie2.c b/elf/tst-pie2.c
++new file mode 100644
++index 0000000..5f715e5
++--- /dev/null
+++++ b/elf/tst-pie2.c
++@@ -0,0 +1,38 @@
+++/* Test case for BZ #16381
+++
+++   Copyright (C) 2014 Free Software Foundation, Inc.
+++   This file is part of the GNU C Library.
+++
+++   The GNU C Library is free software; you can redistribute it and/or
+++   modify it under the terms of the GNU Lesser General Public
+++   License as published by the Free Software Foundation; either
+++   version 2.1 of the License, or (at your option) any later version.
+++
+++   The GNU C Library is distributed in the hope that it will be useful,
+++   but WITHOUT ANY WARRANTY; without even the implied warranty of
+++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+++   Lesser General Public License for more details.
+++
+++   You should have received a copy of the GNU Lesser General Public
+++   License along with the GNU C Library; if not, see
+++   <http://www.gnu.org/licenses/>.  */
+++
+++
+++#include <assert.h>
+++
+++static int g;
+++
+++void init_g (void) __attribute__((constructor));
+++
+++void
+++init_g (void)
+++{
+++  assert (g == 0);
+++  g += 1;
+++}
+++
+++int
+++main (int argc, char *argv[])
+++{
+++  return 0;
+++}
+diff --git a/packages/mold/2.41.0/chksum b/packages/mold/2.41.0/chksum
+new file mode 100644
+--- /dev/null
++++ b/packages/mold/2.41.0/chksum
+@@ -0,0 +1 @@
++sha256 v2.41.0.tar.gz 0a61abac85d818437b425df856822e9d6e9982baeae5a93bcb02fe6c0060c61a
+diff --git a/scripts/build/binutils/binutils.sh b/scripts/build/binutils/binutils.sh
+--- a/scripts/build/binutils/binutils.sh
++++ b/scripts/build/binutils/binutils.sh
+@@ -225 +225,7 @@ do_binutils_backend() {
+-        CT_DoExecLog ALL make ${CT_JOBSFLAGS} configure-host
++        CT_DoExecLog ALL make ${CT_JOBSFLAGS} configure-host
++        case "${CT_BINUTILS_LINKERS_LIST}" in
++            *gold*)
++                CT_DoExecLog ALL make -C libiberty ${CT_JOBSFLAGS} libiberty.a
++                CT_DoExecLog ALL make -C bfd bfdver.h
++                ;;
++        esac
+diff --git a/scripts/build/linker/100-mold.sh b/scripts/build/linker/100-mold.sh
+--- a/scripts/build/linker/100-mold.sh
++++ b/scripts/build/linker/100-mold.sh
+@@ -23 +23,2 @@ do_linker_mold_build() {
+-    cmake "${CT_SRC_DIR}/mold"                                 \
++    cmake "${CT_SRC_DIR}/mold"                                 \
++        -DCMAKE_EXE_LINKER_FLAGS=-static                        \
+diff --git a/verbatim-data.mk b/verbatim-data.mk
+--- a/verbatim-data.mk
++++ b/verbatim-data.mk
+@@ -1097 +1097,2 @@ verbatim_data = \
+-	packages/glibc/2.17/0070-x86_64-Correct-THREAD_SETMEM-THREAD_SETMEM_NC-for.patch \
++	packages/glibc/2.17/0070-x86_64-Correct-THREAD_SETMEM-THREAD_SETMEM_NC-for.patch \
++	packages/glibc/2.17/0071-BZ-16381-load-PIE-as-executable.patch \
+@@ -1118 +1119,2 @@ verbatim_data = \
+-	packages/glibc/2.19/0018-fix-GCC-10-detection.patch \
++	packages/glibc/2.19/0018-fix-GCC-10-detection.patch \
++	packages/glibc/2.19/0019-BZ-16381-load-PIE-as-executable.patch \

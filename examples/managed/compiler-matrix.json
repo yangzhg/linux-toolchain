@@ -1,0 +1,52 @@
+{
+  "build_platform": "linux/amd64",
+  "compilers": [
+    {
+      "family": "gcc",
+      "runtimes": [
+        {
+          "kind": "libstdc++"
+        }
+      ],
+      "versions": [
+        "10",
+        "13",
+        "16"
+      ]
+    },
+    {
+      "family": "clang",
+      "runtimes": [
+        {
+          "gcc_version": "10",
+          "kind": "libstdc++"
+        },
+        {
+          "kind": "libc++"
+        }
+      ],
+      "versions": [
+        "16",
+        "22"
+      ]
+    }
+  ],
+  "format": 1,
+  "host": {
+    "arch": "x86_64",
+    "glibc_floor": "2.19",
+    "os": "linux"
+  },
+  "name": "release-matrix",
+  "schema": "linux-toolchain-managed-spec",
+  "targets": [
+    {
+      "arch": "x86_64",
+      "glibc_floor": "2.19"
+    },
+    {
+      "arch": "x86_64",
+      "glibc_floor": "2.24"
+    }
+  ]
+}

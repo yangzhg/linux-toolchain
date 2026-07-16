@@ -1,0 +1,26 @@
+ELF Header:
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+
+Program Headers:
+      [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+
+Dynamic section at offset 0x2dc0 contains 3 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
+
+Version definition section '.gnu.version_d' contains 1 entry:
+  0x001c: Rev: 1  Flags: none  Index: 2  Cnt: 1  Name: GLIBC_9.99
+
+Version needs section '.gnu.version_r' contains 2 entries:
+ Addr: 0x0000000000000910  Offset: 0x000910  Link: 7 (.dynstr)
+  000000: Version: 1  File: libc.so.6  Cnt: 2
+  0x0010:   Name: GLIBC_2.2.5  Flags: none  Version: 5
+  0x0020:   Name: GLIBC_2.18  Flags: none  Version: 4
+  0x0030: Version: 1  File: libstdc++.so.6  Cnt: 2
+  0x0040:   Name: GLIBCXX_3.4.31  Flags: none  Version: 3
+  0x0050:   Name: CXXABI_1.3.13  Flags: none  Version: 2

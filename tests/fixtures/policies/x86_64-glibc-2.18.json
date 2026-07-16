@@ -1,0 +1,20 @@
+{
+  "schema": "linux-toolchain-elf-audit-policy",
+  "format": 1,
+  "machine": "x86_64",
+  "elf_class": "ELF64",
+  "endianness": "little",
+  "max_required_versions": {
+    "GLIBC": "2.18",
+    "GLIBCXX": null,
+    "CXXABI": null,
+    "GCC": null
+  },
+  "forbidden_versions": [
+    "GLIBC_PRIVATE",
+    "GLIBC_ABI_DT_RELR"
+  ],
+  "allowed_interpreters": [
+    "/lib64/ld-linux-x86-64.so.2"
+  ]
+}
